@@ -1,114 +1,225 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Purrfect Stitch — Gerenciamento de Loja de Crochê
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+> Projeto desenvolvido para a disciplina de Backend do IFRS — Campus Rio Grande.
+> A API permite gerenciar produtos de crochê, categorias, materiais (a "receita" de cada
+> peça), pedidos e usuários, usando NestJS, Prisma ORM 7 e PostgreSQL (Neon).
+> O frontend em React (opcional) consome a API.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tecnologias utilizadas
 
-## Description
+- Node.js, NestJS 12, Prisma ORM 7.10, PostgreSQL (Neon)
+- JWT (`@nestjs/jwt`), Bcrypt, class-validator / class-transformer
+- Frontend (bônus): React 18, Vite, React Router, Axios
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Pré-requisitos
 
-## Project setup
+Node.js 20+, npm, Git e uma conta no [Neon](https://neon.tech).
+
+## Instalação
 
 ```bash
-$ npm install
+git clone https://github.com/usuario/repositorio.git
+cd repositorio
+npm install
 ```
 
-## Compile and run the project
+## Variáveis de ambiente
+
+Crie um `.env` na raiz (modelo em `.env.example`). **Não suba o `.env` para o Git.**
+
+```env
+DATABASE_URL="postgresql://usuario:senha@host/database?sslmode=require"
+JWT_SECRET="troque_por_uma_chave_longa_e_secreta"
+PORT=3000
+```
+
+## Migrações
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npx prisma migrate dev     # aplica as migrações no banco (Neon)
+npx prisma generate        # gera o client em src/generated/prisma
 ```
 
-## Run tests
+Em produção/CI use `npx prisma migrate deploy`.
+
+> A migração `20261112120000_loja_completa` adiciona `UNIQUE` em `usuarios.email`,
+> `categorias.nome` e `materiais.nome`. Se já existirem registros duplicados nesses
+> campos no banco, apague/ajuste os duplicados antes de migrar.
+
+## Executando
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev
 ```
 
-## Deployment
+A API fica em `http://localhost:3000`.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### Testes
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm test            # testes unitários (regras de pedidos)
+npm run test:e2e    # API completa com o Prisma "simulado" (não precisa do banco)
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Modelagem (DER)
 
-## Observability
+```mermaid
+erDiagram
+    USUARIO ||--o{ PEDIDO : registra
+    CATEGORIA ||--o{ PRODUTO : agrupa
+    PRODUTO ||--o| DETALHE_PRODUTO : "tem (1:1)"
+    PRODUTO ||--o{ PRODUTO_MATERIAL : usa
+    MATERIAL ||--o{ PRODUTO_MATERIAL : "é usado em"
+    PEDIDO ||--o{ ITEM_PEDIDO : contém
+    PRODUTO ||--o{ ITEM_PEDIDO : "é vendido em"
+```
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+| Relacionamento | Tipo | Como está modelado |
+|---|---|---|
+| Produto ↔ DetalheProduto | **1:1** | `detalhes_produto.id_produto` é PK **e** FK de `produtos` |
+| Categoria → Produto | **1:N** | `produtos.categoria_id` |
+| Usuário → Pedido | **1:N** | `pedidos.usuario_id` |
+| Produto ↔ Material | **N:N** | tabela `produtos_materiais` (com `quantidade_usada`) |
+| Pedido ↔ Produto | **N:N** | tabela `itens_pedido` (com `quantidade` e `preco_unitario`) |
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+Tabelas: `usuarios`, `categorias`, `produtos`, `detalhes_produto`, `materiais`,
+`produtos_materiais`, `pedidos`, `itens_pedido`.
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+## Estrutura do projeto
 
-## Resources
+```
+src/
+├── auth/              (module, controller, service, guard, @Public, @CurrentUser, dto)
+├── prisma/            (module global + service com adapter Neon)
+├── common/            (filtro que converte erros do Prisma em 404/409)
+├── categorias/        (module, controller, service, dto)
+├── produtos/          (module, controller, service, dto) — inclui a receita (N:N)
+├── detalhes-produto/  (module, controller, service, dto) — relação 1:1
+├── materiais/         (module, controller, service, dto)
+├── pedidos/           (module, controller, service, dto)
+├── relatorios/        (module, controller, service) — consultas com 3+ tabelas
+├── app.module.ts
+└── main.ts
+prisma/
+├── schema.prisma
+└── migrations/
+prisma.config.ts
+frontend/              (React + Vite — bônus)
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## Autenticação
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Fluxo: registrar → logar → receber o token → enviar `Authorization: Bearer SEU_TOKEN`.
 
-## Support
+- A senha é guardada com **bcrypt**; o login devolve um **JWT** (validade de 1h).
+- O `AuthGuard` está registrado **globalmente** (`APP_GUARD`): toda rota é protegida
+  por padrão. Apenas as rotas marcadas com `@Public()` (cadastro e login) são abertas.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Rotas da API
 
-## Stay in touch
+| Método | Rota | Descrição | Pública? |
+|---|---|---|---|
+| POST | /auth/register | Cadastro de usuário | Sim |
+| POST | /auth/login | Login (retorna JWT e dados do usuário) | Sim |
+| GET | /categorias | Lista categorias (com contagem de produtos) | Não |
+| GET | /categorias/:id | Busca categoria | Não |
+| POST | /categorias | Cria categoria | Não |
+| PATCH | /categorias/:id | Atualiza categoria | Não |
+| DELETE | /categorias/:id | Remove categoria (409 se tiver produtos) | Não |
+| GET | /produtos | Lista produtos (`?categoriaId=` e `?busca=`) | Não |
+| GET | /produtos/:id | Busca produto com categoria, detalhe e materiais | Não |
+| POST | /produtos | Cria produto | Não |
+| PATCH | /produtos/:id | Atualiza produto | Não |
+| DELETE | /produtos/:id | Remove produto (409 se já foi vendido) | Não |
+| POST | /produtos/:id/materiais | Vincula material ao produto (N:N) | Não |
+| DELETE | /produtos/:id/materiais/:materialId | Remove vínculo produto-material | Não |
+| POST | /produtos/:id/detalhe | Cria o detalhe do produto (1:1; 409 se já existir) | Não |
+| GET | /produtos/:id/detalhe | Busca o detalhe do produto | Não |
+| PATCH | /produtos/:id/detalhe | Atualiza o detalhe | Não |
+| DELETE | /produtos/:id/detalhe | Remove o detalhe | Não |
+| GET | /materiais | Lista materiais | Não |
+| GET | /materiais/:id | Busca material (com os produtos que o usam) | Não |
+| POST | /materiais | Cria material | Não |
+| PATCH | /materiais/:id | Atualiza material | Não |
+| DELETE | /materiais/:id | Remove material (409 se estiver em uso) | Não |
+| GET | /pedidos | Lista pedidos (`?status=PENDENTE\|CONCLUIDO\|CANCELADO`) | Não |
+| GET | /pedidos/:id | Busca pedido | Não |
+| POST | /pedidos | Registra pedido (baixa o estoque) | Não |
+| PATCH | /pedidos/:id | Altera cliente e/ou status | Não |
+| DELETE | /pedidos/:id | Remove pedido (devolve estoque, se ativo) | Não |
+| GET | /relatorios/pedidos-detalhados | Pedidos + usuário + itens + produto + categoria | Não |
+| GET | /relatorios/catalogo | Categorias + produtos + detalhe + materiais | Não |
+| GET | /relatorios/dashboard | Totais, faturamento, mais vendidos e alertas de estoque | Não |
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Corpos de exemplo
 
-## License
+```jsonc
+// POST /auth/register
+{ "nome": "Ana", "email": "ana@email.com", "senha": "123456" }
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+// POST /produtos
+{ "categoriaId": 1, "nome": "Gatinho amigurumi", "descricao": "Feito à mão", "preco": 59.9, "quantidade": 4 }
+
+// POST /produtos/1/detalhe
+{ "tempoProducao": 6, "peso": 120, "nivelDificuldade": "Médio", "dimensoes": "15x10x8 cm" }
+
+// POST /produtos/1/materiais
+{ "materialId": 2, "quantidadeUsada": 3 }
+
+// POST /pedidos   (o usuário vem do token)
+{ "clienteNome": "Carla", "itens": [ { "produtoId": 1, "quantidade": 2 } ] }
+
+// PATCH /pedidos/1
+{ "status": "CANCELADO" }
+```
+
+## Regras de negócio
+
+- **Estoque nunca fica negativo:** produto/material não aceitam quantidade negativa e o
+  pedido só é criado se houver saldo; a baixa é atômica, dentro de uma transação
+  (se um item falhar, nada é gravado).
+- **Preço congelado:** o item do pedido guarda o `preco_unitario` do momento da venda.
+- **Cancelar devolve o estoque:** `PENDENTE → CONCLUIDO/CANCELADO`, `CONCLUIDO → CANCELADO`;
+  `CANCELADO` é final (409 em qualquer outra mudança).
+- **1:1 respeitado:** um produto só pode ter um detalhe (409 ao tentar criar o segundo).
+- **Integridade:** não exclui categoria com produtos, material em uso ou produto já vendido (409).
+
+## Tratamento de erros
+
+| Status | Quando |
+|---|---|
+| 400 | DTO inválido, `:id` não numérico, categoria/material/produto informado não existe, estoque insuficiente |
+| 401 | Token ausente, inválido ou expirado; credenciais inválidas |
+| 404 | Registro não encontrado |
+| 409 | E-mail/nome duplicado, vínculo já existente, exclusão bloqueada, transição de status inválida |
+| 500 | Erro interno |
+
+Erros do Prisma (`P2002` → 409, `P2003` → 409, `P2025` → 404) são convertidos por um
+filtro global (`src/common/prisma-exception.filter.ts`).
+
+## Consulta avançada
+
+`GET /relatorios/pedidos-detalhados` retorna cada pedido com o usuário, os itens, o
+produto (com categoria e detalhe) — 6 tabelas em uma única consulta Prisma.
+`GET /relatorios/dashboard` combina totais, `groupBy` de vendas e alertas de estoque.
+
+## Testando a API
+
+Insomnia, Postman ou Thunder Client (VSCode):
+
+1. `POST /auth/register` → 2. `POST /auth/login` (copie o `access_token`) →
+3. envie `Authorization: Bearer SEU_TOKEN` nas demais rotas →
+4. teste também sem token (401) e com dados inválidos (400).
+
+## Frontend (bônus)
+
+Veja [`frontend/README.md`](frontend/README.md).
+
+## Integrantes
+
+- Nicole dos Santos
+- Maria Eduarda
+
+## Licença
+
+Projeto desenvolvido exclusivamente para fins acadêmicos na disciplina de Backend do IFRS.

@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -12,18 +7,41 @@ datasource db {
   provider = "postgresql"
 }
 
+enum AcaoHistorico {
+  CADASTRO
+  EDICAO
+  EXCLUSAO
+}
+
+enum TipoRegistro {
+  PRODUTO
+  ADMINISTRADOR
+}
+
+enum StatusPedido {
+  PENDENTE
+  CONCLUIDO
+  CANCELADO
+}
+
+// Usuário do sistema (quem opera a loja). 1:N com Pedido.
 model Usuario {
-  id    Int    @id @default(autoincrement())
-  nome  String
-  email String
-  senha String
+  id      Int      @id @default(autoincrement())
+  nome    String
+  email   String   @unique
+  senha   String
+  pedidos Pedido[]
+
+  produtosCriados     Produto[] @relation("ProdutoCriadoPor")
+  produtosAtualizados Produto[] @relation("ProdutoAtualizadoPor")
 
   @@map("usuarios")
 }
 
+// 1:N com Produto
 model Categoria {
   id        Int       @id @default(autoincrement())
-  nome      String
+  nome      String    @unique
   descricao String
   produtos  Produto[]
 
@@ -31,32 +49,103 @@ model Categoria {
 }
 
 model Produto {
-  id              Int               @id @default(autoincrement())
-  categoria_id    Int
-  categoria       Categoria         @relation(fields: [categoria_id], references: [id])
-  nome            String
-  descricao       String?
-  preco           Float
-  quantidade      Int
-  detalheProdutos Detalhe_produto?
+  id          Int               @id @default(autoincrement())
+  categoriaId Int               @map("categoria_id")
+  categoria   Categoria         @relation(fields: [categoriaId], references: [id])
+  nome        String
+  descricao   String?
+  preco       Float
+  quantidade  Int
+  imagemUrl   String?           @map("imagem_url")
+
+  // Auditoria: quem cadastrou / alterou por último, e quando.
+  criadoEm         DateTime @default(now()) @map("criado_em")
+  atualizadoEm     DateTime @default(now()) @updatedAt @map("atualizado_em")
+  criadoPorId      Int?     @map("criado_por_id")
+  atualizadoPorId  Int?     @map("atualizado_por_id")
+  criadoPor        Usuario? @relation("ProdutoCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  atualizadoPor    Usuario? @relation("ProdutoAtualizadoPor", fields: [atualizadoPorId], references: [id], onDelete: SetNull)
+
+  detalhe     DetalheProduto? // 1:1
+  materiais   ProdutoMaterial[] // N:N com Material (tabela de ligação)
+  itensPedido ItemPedido[] // N:N com Pedido (tabela de ligação)
 
   @@map("produtos")
 }
 
-model Detalhe_produto {
-  id_produto     Int     @id
-  produto        Produto @relation(fields: [id_produto], references: [id])
-  tempo_producao Int
-  peso           Float
-  nivel_dificuldade String
-  dimensoes       String
+// 1:1 com Produto: a chave primária é também a chave estrangeira.
+model DetalheProduto {
+  produtoId        Int     @id @map("id_produto")
+  produto          Produto @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  tempoProducao    Int     @map("tempo_producao") // em horas
+  peso             Float // em gramas
+  nivelDificuldade String  @map("nivel_dificuldade")
+  dimensoes        String
+
   @@map("detalhes_produto")
 }
 
 model Material {
-  id              Int       @id @default(autoincrement())
-  nome            String
-  quantidade      Int
-  unidade_medida  String
+  id            Int               @id @default(autoincrement())
+  nome          String            @unique
+  quantidade    Int
+  unidadeMedida String            @map("unidade_medida")
+  produtos      ProdutoMaterial[]
+
   @@map("materiais")
+}
+
+// N:N Produto <-> Material (a "receita" do produto).
+// Tem atributo próprio (quantidadeUsada), por isso é uma tabela explícita.
+model ProdutoMaterial {
+  produtoId       Int      @map("produto_id")
+  materialId      Int      @map("material_id")
+  quantidadeUsada Int      @map("quantidade_usada")
+  produto         Produto  @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  material        Material @relation(fields: [materialId], references: [id])
+
+  @@id([produtoId, materialId])
+  @@map("produtos_materiais")
+}
+
+// 1:N com Usuario; N:N com Produto através de ItemPedido.
+model Pedido {
+  id          Int          @id @default(autoincrement())
+  data        DateTime     @default(now())
+  clienteNome String       @map("cliente_nome")
+  status      StatusPedido @default(PENDENTE)
+  total       Float
+  usuarioId   Int          @map("usuario_id")
+  usuario     Usuario      @relation(fields: [usuarioId], references: [id])
+  itens       ItemPedido[]
+
+  @@map("pedidos")
+}
+
+model ItemPedido {
+  id            Int     @id @default(autoincrement())
+  pedidoId      Int     @map("pedido_id")
+  produtoId     Int     @map("produto_id")
+  quantidade    Int
+  precoUnitario Float   @map("preco_unitario")
+  pedido        Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto       Produto @relation(fields: [produtoId], references: [id])
+
+  @@map("itens_pedido")
+}
+
+// Registro de atividades (somente leitura na API). Guarda o nome do admin como
+// "foto" do momento, então continua legível mesmo se o usuário for excluído.
+model Historico {
+  id                Int          @id @default(autoincrement())
+  administradorId   Int          @map("administrador_id")
+  administradorNome String       @map("administrador_nome")
+  acao              AcaoHistorico
+  tipoRegistro      TipoRegistro @map("tipo_registro")
+  registroId        Int          @map("registro_id")
+  registroNome      String       @map("registro_nome")
+  dataHora          DateTime     @default(now()) @map("data_hora")
+
+  @@index([dataHora])
+  @@map("historico")
 }
