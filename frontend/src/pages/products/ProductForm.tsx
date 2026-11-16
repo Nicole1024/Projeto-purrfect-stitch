@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { extrairMensagemErro, modoSimulado, servicos } from '../../services';
+import { extrairMensagemErro, servicos } from '../../services';
 import { useNotificacao } from '../../contexts/NotificationContext';
 import CabecalhoPagina from '../../components/ui/PageHeader';
 import CampoFormulario from '../../components/ui/FormField';
@@ -120,25 +120,19 @@ export default function ProdutoFormulario() {
               </div>
 
               <div className="col-12 col-lg-5">
-                {modoSimulado ? (
-                  <>
-                    <SeletorImagem
-                      id="imagem"
-                      rotulo="Imagem do produto"
-                      urlAtual={imagemAtual}
-                      arquivo={imagem}
-                      erro={erros.imagem ?? erroImagem ?? undefined}
-                      aoMudar={(arquivo, problema) => {
-                        setImagem(arquivo);
-                        setErroImagem(problema);
-                        setErros((atuais) => ({ ...atuais, imagem: problema ?? undefined }));
-                      }}
-                    />
-                    {editando && <p className="small text-body-secondary">Ao escolher uma nova imagem, a anterior será substituída.</p>}
-                  </>
-                ) : (
-                  <p className="small text-body-secondary">O backend atual ainda não oferece suporte a imagens de produtos.</p>
-                )}
+                <SeletorImagem
+                  id="imagem"
+                  rotulo="Imagem do produto"
+                  urlAtual={imagemAtual}
+                  arquivo={imagem}
+                  erro={erros.imagem ?? erroImagem ?? undefined}
+                  aoMudar={(arquivo, problema) => {
+                    setImagem(arquivo);
+                    setErroImagem(problema);
+                    setErros((atuais) => ({ ...atuais, imagem: problema ?? undefined }));
+                  }}
+                />
+                {editando && <p className="small text-body-secondary">Ao escolher uma nova imagem, a anterior será substituída.</p>}
               </div>
             </div>
           </div>

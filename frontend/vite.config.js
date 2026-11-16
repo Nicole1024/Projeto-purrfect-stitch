@@ -8,6 +8,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: '::',
     port: 5173, // porta padrão do Vite (pode mudar se estiver ocupada)
   },
 });
